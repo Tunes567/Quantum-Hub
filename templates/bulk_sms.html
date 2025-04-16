@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <h1 class="h3 mb-4">Bulk SMS</h1>
+
+    <!-- Stats Summary -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <p>Available Credits</p>
+            <h3>€{{ "%.2f"|format(user.credits) }}</h3>
+        </div>
+        <div class="stat-card">
+            <p>Cost per SMS</p>
+            <h3>€{{ "%.2f"|format(user.sms_rate) }}</h3>
+        </div>
+        <div class="stat-card">
+            <p>Numbers Loaded</p>
+            <h3 id="totalNumbers">0</h3>
+        </div>
+        <div class="stat-card">
+            <p>Total Cost</p>
+            <h3 id="estimatedCost">€0.00</h3>
+        </div>
+    </div>
+
+    <!-- Bulk SMS Form -->
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('send_bulk_sms') }}" enctype="multipart/form-data" id="bulkSmsForm">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Country</label>
+                        <select class="form-select" id="countryCode" name="country_code" required>
+                            <option value="+52">Mexico (+52)</option>
+                            <option value="+1">United States (+1)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Upload Numbers File</label>
+                        <input type="file" class="form-control" name="numbers_file" accept=".txt,.csv">
+                        <small class="text-muted">Upload a .txt or .csv file with one 10-digit number per line</small>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Phone Numbers</label>
+                    <textarea class="form-control mb-2" name="numbers" rows="4" 
+                              placeholder="Enter 10-digit numbers, one per line:&#10;5512345678&#10;5587654321"
+                              pattern="^[0-9]{10}$"></textarea>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">Enter 10-digit numbers without country code (one per line)</small>
+                        <small class="text-muted">For Mexico: The system will format as "+52" but the route will use "52"</small>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-control" name="content" rows="4" required maxlength="160" id="messageContent"></textarea>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">Maximum 160 characters</small>
+                        <small class="text-muted"><span id="charCount">0</span>/160</small>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Send Bulk SMS
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Numbers Preview -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Numbers Preview</h5>
+            <div class="badge bg-primary" id="validNumbersBadge">0 Valid Numbers</div>
+        </div>
+        <div class="card-body">
+            <div class="message-preview p-3 border rounded bg-light">
+                <div id="numbersPreview" class="text-break" style="max-height: 200px; overflow-y: auto; font-family: monospace;">
+                    <p class="text-muted">Numbers will appear here when loaded...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Preview -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Message Preview</h5>
+            <div class="badge bg-primary">Sample Message</div>
+        </div>
+        <div class="card-body">
+            <div class="message-preview p-3 border rounded bg-light">
+                <div id="previewContent" class="text-break" style="font-family: monospace;">
+                    Type your message to see the preview...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const countryCode = document.getElementById('countryCode');
+const messageContent = document.getElementById('messageContent');
+const charCount = document.getElementById('charCount');
+const previewContent = document.getElementById('previewContent');
+const smsRate = parseFloat('{{ user.sms_rate }}');
+const credits = parseFloat('{{ user.credits }}');
+
+// Function to format and validate phone numbers
+function formatPhoneNumbers(numbers, selectedCountryCode) {
+    return numbers
+        .split('\n')
+        .map(n => n.trim())
+        .filter(n => n.length > 0)  // Only filter empty lines
+        .map(n => {
+            // Remove any non-digit characters
+            const clean = n.replace(/\D/g, '');
+            // If it's a 10-digit number, add country code
+            if (clean.length === 10) {
+                return {
+                    number: selectedCountryCode === '+52' ? 
+                        `${selectedCountryCode}${clean} <span class="text-muted">(will send as: 52${clean})</span>` : 
+                        `${selectedCountryCode}${clean}`,
+                    isValid: true
+                };
+            }
+            // If it already has country code, use as is
+            else if (clean.length > 10) {
+                return {
+                    number: clean,
+                    isValid: true
+                };
+            }
+            return {
+                number: `Invalid: ${n}`,
+                isValid: false
+            };
+        });
+}
+
+function updatePreviews() {
+    const messageLength = messageContent.value.length;
+    charCount.textContent = messageLength;
+    previewContent.textContent = messageLength > 0 ? messageContent.value : 'Type your message to see the preview...';
+}
+
+function updateStats(validNumbers) {
+    document.getElementById('totalNumbers').textContent = validNumbers;
+    document.getElementById('estimatedCost').textContent = `€${(validNumbers * smsRate).toFixed(2)}`;
+    document.getElementById('validNumbersBadge').textContent = `${validNumbers} Valid Numbers`;
+}
+
+// Handle file upload preview
+document.querySelector('input[name="numbers_file"]').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const numbers = formatPhoneNumbers(e.target.result, countryCode.value);
+            const validNumbers = numbers.filter(n => n.isValid);
+            
+            // Update preview
+            document.querySelector('#numbersPreview').innerHTML = numbers
+                .map(n => `<div class="${n.isValid ? '' : 'text-danger'}">${n.number}</div>`)
+                .join('');
+            
+            // Update stats
+            updateStats(validNumbers.length);
+        };
+        reader.readAsText(file);
+    }
+});
+
+// Handle textarea input preview
+document.querySelector('textarea[name="numbers"]').addEventListener('input', function(e) {
+    const numbers = formatPhoneNumbers(e.target.value, countryCode.value);
+    const validNumbers = numbers.filter(n => n.isValid);
+    
+    // Update preview
+    document.querySelector('#numbersPreview').innerHTML = numbers
+        .map(n => `<div class="${n.isValid ? '' : 'text-danger'}">${n.number}</div>`)
+        .join('');
+    
+    // Update stats
+    updateStats(validNumbers.length);
+});
+
+// Update preview when country code changes
+countryCode.addEventListener('change', function() {
+    const textarea = document.querySelector('textarea[name="numbers"]');
+    if (textarea.value) {
+        textarea.dispatchEvent(new Event('input'));
+    }
+    const fileInput = document.querySelector('input[name="numbers_file"]');
+    if (fileInput.files.length > 0) {
+        fileInput.dispatchEvent(new Event('change'));
+    }
+});
+
+messageContent.addEventListener('input', updatePreviews);
+
+document.getElementById('bulkSmsForm').addEventListener('submit', function(e) {
+    const totalCost = parseFloat(document.getElementById('estimatedCost').textContent.replace('€', ''));
+    if (totalCost > credits) {
+        e.preventDefault();
+        alert('Insufficient credits for sending these messages.');
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,65 @@
+<!-- Add Credits Modal -->
+<div class="modal fade" id="addSystemCreditsModal" tabindex="-1" aria-labelledby="addSystemCreditsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSystemCreditsModalLabel">Add System Credits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_system_credits') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount (€)</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label">Payment Method</label>
+                        <select class="form-select" id="payment_method" name="payment_method" required>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="paypal">PayPal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transaction_id" class="form-label">Transaction ID</label>
+                        <input type="text" class="form-control" id="transaction_id" name="transaction_id" required>
+                        <small class="text-muted">Required for bank transfers</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Credits</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Credits Modal -->
+{% for user in users %}
+<div class="modal fade" id="addCreditsModal{{ user.id }}" tabindex="-1" aria-labelledby="addCreditsModalLabel{{ user.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCreditsModalLabel{{ user.id }}">Add Credits to {{ user.username }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_credits', user_id=user.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="amount{{ user.id }}" class="form-label">Amount (€)</label>
+                        <input type="number" class="form-control" id="amount{{ user.id }}" name="amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="alert alert-info">
+                        Current SMS Rate: €{{ "%.2f"|format(user.sms_rate) }}/SMS
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Credits</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %} 

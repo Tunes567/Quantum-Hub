@@ -1,0 +1,34 @@
+<!-- Add System Credits Modal -->
+<div class="modal fade" id="addSystemCreditsModal" tabindex="-1" aria-labelledby="addSystemCreditsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSystemCreditsModalLabel">Add System Credits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_system_credits') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <label for="amount" class="form-label">Amount (€)</label>
+                        <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" required>
+                        <small class="text-muted">Enter the amount of credits to add to the system balance</small>
+                    </div>
+                    <div class="mb-4">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Optional: Add any notes about this credit addition"></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Current System Balance: €{{ "%.2f"|format(system_balance) }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Add Credits
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 

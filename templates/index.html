@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <h1 class="display-4 mb-4">Welcome to SMS Hub</h1>
+        <p class="lead mb-4">Professional SMS Gateway Solution</p>
+        
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i class="bi bi-shield-lock display-4 mb-3"></i>
+                        <h3>Secure</h3>
+                        <p>Enterprise-grade security for your communications</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i class="bi bi-graph-up display-4 mb-3"></i>
+                        <h3>Analytics</h3>
+                        <p>Detailed reporting and message tracking</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i class="bi bi-credit-card display-4 mb-3"></i>
+                        <h3>Flexible Billing</h3>
+                        <p>Pay-as-you-go credit system</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5">
+            {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('request_demo') }}" class="btn btn-primary btn-lg me-3">Request Demo</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">Login</a>
+            {% else %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">Go to Dashboard</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
