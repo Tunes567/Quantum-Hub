@@ -11,12 +11,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# This is the app instance Vercel will look for
 app = Flask(__name__)
 
-def handler(request):
-    """Health check endpoint to verify API functionality"""
+@app.route('/', defaults={'path': ''}, methods=['GET'])
+@app.route('/<path:path>', methods=['GET'])
+def handle_health_request(path):
+    """Health check endpoint handler"""
     try:
-        # Show environment information
         env_vars = {
             key: '[SET]' if key in os.environ else '[NOT SET]'
             for key in [
@@ -28,7 +30,7 @@ def handler(request):
         
         response_data = {
             'status': 'healthy',
-            'message': 'API is functioning correctly',
+            'message': 'API is functioning correctly (health.py)',
             'environment': env_vars,
             'python_version': sys.version
         }
@@ -49,15 +51,12 @@ def handler(request):
             status=500
         )
 
-# For Vercel serverless function
-def lambda_handler(event, context):
-    return handler(event)
+# Remove the previous handler/lambda stuff
+# def handler(request):
+# ... (removed)
+# def lambda_handler(event, context):
+# ... (removed)
 
-# For Flask app
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def health_check(path):
-    return handler(None)
-
+# Keep this for potential local testing, but Vercel won't use it directly
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8000))) 
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8001))) # Use a different port for local testing if needed 
