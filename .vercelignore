@@ -1,0 +1,13 @@
+.git
+__pycache__
+*.pyc
+instance
+venv
+angular
+nginx
+docker-compose.yml
+Dockerfile
+.env
+sms.db
+users.db
+test_*.py 

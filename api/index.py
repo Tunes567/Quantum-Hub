@@ -1,4 +1,3 @@
-from flask import Flask, request, jsonify
 import os
 import sys
 import logging
@@ -11,43 +10,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create a simple Flask app for debugging
-app = Flask(__name__)
+# Log Python version and other info
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"Files in current directory: {', '.join(os.listdir('.'))}")
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def catch_all(path):
-    """Simple debug route to verify Vercel setup"""
-    try:
-        # Show environment information
-        env_vars = {
-            key: '[SET]' if key in os.environ else '[NOT SET]'
-            for key in [
-                'FLASK_APP', 'SUPABASE_URL', 'SUPABASE_KEY', 
-                'SMPP_HOST', 'SMPP_PORT', 'SMPP_USERNAME'
-            ]
-        }
-        
-        return jsonify({
-            'status': 'ok',
-            'message': 'Vercel serverless function is running',
-            'path': path,
-            'env_vars': env_vars,
-            'python_version': sys.version,
-            'request_method': request.method
-        })
-    except Exception as e:
-        logger.exception(f"Error in catch_all route: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+try:
+    # Explicitly add parent directory to path if needed
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    logger.info(f"Updated sys.path: {sys.path}")
+    
+    # Import the main application
+    from vercel_app import app
+    logger.info("Successfully imported vercel_app")
+except Exception as e:
+    logger.error(f"Error importing vercel_app: {str(e)}")
+    raise
 
 # This is needed for Vercel serverless function
 def handler(request, context):
     """Handle Vercel serverless function request"""
-    with app.request_context(request.environ):
-        return app(request.environ, lambda status, headers: [status, headers, []])
+    try:
+        with app.request_context(request.environ):
+            return app(request.environ, lambda status, headers: [status, headers, []])
+    except Exception as e:
+        logger.exception(f"Error in handler: {str(e)}")
+        from flask import Flask, jsonify
+        error_app = Flask(__name__)
+        with error_app.request_context(request.environ):
+            response = jsonify({
+                'status': 'error',
+                'message': f'Application error: {str(e)}'
+            })
+            return response(request.environ, lambda status, headers: [status, headers, []])
 
 # For local testing
 if __name__ == '__main__':
