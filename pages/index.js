@@ -3,18 +3,40 @@ import Head from 'next/head'
 
 export default function Home() {
   const [status, setStatus] = useState('Loading...');
+  const [errorDetails, setErrorDetails] = useState('');
   
   useEffect(() => {
-    // Check API health on load
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
+    const checkAPI = async () => {
+      try {
+        // Try Next.js API route first
+        const res = await fetch('/api/health');
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        
+        const data = await res.json();
         setStatus(data.status);
-      })
-      .catch(err => {
+        setErrorDetails('');
+      } catch (err) {
+        console.error('API Error:', err);
         setStatus('Error connecting to API');
-        console.error(err);
-      });
+        setErrorDetails(`${err.message}`);
+        
+        // Try alternative API endpoint as backup
+        try {
+          const fallbackRes = await fetch('/api/hello');
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            setErrorDetails(prev => `${prev} (Fallback API is working: ${fallbackData.message})`);
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback API Error:', fallbackErr);
+        }
+      }
+    };
+    
+    checkAPI();
   }, []);
 
   return (
@@ -45,6 +67,19 @@ export default function Home() {
             fontWeight: 'bold',
             color: status === 'healthy' ? 'green' : 'red'
           }}>{status}</span></p>
+          
+          {errorDetails && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.5rem', 
+              backgroundColor: 'rgba(255,0,0,0.05)', 
+              borderRadius: '4px',
+              fontSize: '0.8rem',
+              color: '#666'
+            }}>
+              {errorDetails}
+            </div>
+          )}
           
           <div style={{ marginTop: '2rem' }}>
             <h3>Quick Links</h3>
