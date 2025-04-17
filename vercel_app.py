@@ -6,26 +6,61 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import logging
 import json
-from supabase import create_client, Client
-import requests
-import smpplib.gsm
-import smpplib.client
-import smpplib.consts
+import sys
+
+# Configure logging first thing to capture any startup errors
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+
+# Log important environment information
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Starting Vercel serverless function")
 
 # Load environment variables
 load_dotenv()
+logger.info("Environment variables loaded")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+try:
+    from supabase import create_client, Client
+    import requests
+    import smpplib.gsm
+    import smpplib.client
+    import smpplib.consts
+    logger.info("All libraries imported successfully")
+except Exception as e:
+    logger.error(f"Error importing libraries: {str(e)}")
+    raise
+
+# Log important environment variables (without sensitive values)
+logger.info(f"SUPABASE_URL set: {'SUPABASE_URL' in os.environ}")
+logger.info(f"SMPP_HOST set: {'SMPP_HOST' in os.environ}")
+logger.info(f"SMS_GATEWAY_TYPE: {os.getenv('SMS_GATEWAY_TYPE', 'not set')}")
+logger.info(f"SMS_SENDER_ID: {os.getenv('SMS_SENDER_ID', 'not set')}")
 
 # Initialize Supabase client
-supabase_url = os.getenv('SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_KEY')
-supabase: Client = create_client(supabase_url, supabase_key)
+try:
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_KEY')
+    logger.info(f"Initializing Supabase client with URL: {supabase_url[:20]}...")
+    
+    if not supabase_url or not supabase_key:
+        logger.error("Supabase URL or key is missing")
+        raise ValueError("Supabase URL or key is missing")
+        
+    supabase: Client = create_client(supabase_url, supabase_key)
+    logger.info("Supabase client initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing Supabase client: {str(e)}")
+    # Don't raise here, allow app to initialize even with Supabase error
 
+# Initialize Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
+logger.info("Flask app initialized")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -293,46 +328,67 @@ def send_sms_http(numbers, content):
 # Routes
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        if current_user.is_admin:
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    try:
+        if current_user.is_authenticated:
+            if current_user.is_admin:
+                return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('dashboard'))
+        return render_template('login.html')
+    except Exception as e:
+        logger.error(f"Error in index route: {str(e)}")
+        return f"Application error: {str(e)}", 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        if current_user.is_admin:
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('dashboard'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+    try:
+        if current_user.is_authenticated:
+            if current_user.is_admin:
+                return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('dashboard'))
         
-        response = supabase.table('users').select('*').eq('username', username).execute()
-        if response.data and len(response.data) > 0:
-            user_data = response.data[0]
-            user = User(
-                id=user_data['id'],
-                username=user_data['username'],
-                email=user_data['email'],
-                password=user_data['password'],
-                credits=user_data['credits'],
-                is_admin=user_data['is_admin'],
-                sms_rate=user_data['sms_rate'],
-                role=user_data['role']
-            )
+        if request.method == 'POST':
+            username = request.form.get('username')
+            password = request.form.get('password')
             
-            if user.check_password(password):
-                login_user(user)
-                if user.is_admin:
-                    return redirect(url_for('admin_dashboard'))
-                return redirect(url_for('dashboard'))
+            logger.info(f"Login attempt for user: {username}")
+            
+            try:
+                response = supabase.table('users').select('*').eq('username', username).execute()
+                logger.info(f"Supabase query for user complete, got {len(response.data) if response.data else 0} results")
+                
+                if response.data and len(response.data) > 0:
+                    user_data = response.data[0]
+                    user = User(
+                        id=user_data['id'],
+                        username=user_data['username'],
+                        email=user_data['email'],
+                        password=user_data['password'],
+                        credits=user_data['credits'],
+                        is_admin=user_data['is_admin'],
+                        sms_rate=user_data['sms_rate'],
+                        role=user_data['role']
+                    )
+                    
+                    if user.check_password(password):
+                        login_user(user)
+                        logger.info(f"User {username} logged in successfully")
+                        if user.is_admin:
+                            return redirect(url_for('admin_dashboard'))
+                        return redirect(url_for('dashboard'))
+                    else:
+                        logger.info(f"Invalid password for user {username}")
+                else:
+                    logger.info(f"No user found with username {username}")
+            
+                flash('Invalid username or password', 'error')
+            except Exception as e:
+                logger.error(f"Error during login database query: {str(e)}")
+                flash('System error during login. Please try again.', 'error')
         
-        flash('Invalid username or password', 'error')
-    
-    return render_template('login.html')
+        return render_template('login.html')
+    except Exception as e:
+        logger.error(f"Unhandled error in login route: {str(e)}")
+        return f"Login error: {str(e)}", 500
 
 @app.route('/dashboard')
 @login_required
@@ -360,15 +416,18 @@ def dashboard():
 @app.route('/send_sms', methods=['POST'])
 @login_required
 def send_sms_route():
-    if current_user.is_admin:
-        return redirect(url_for('admin_dashboard'))
-    
     try:
+        if current_user.is_admin:
+            return redirect(url_for('admin_dashboard'))
+        
         country_code = request.form.get('country_code', '+52').strip()
         phone_number = request.form.get('phone_number', '').strip()
         content = request.form.get('content', '').strip()
         
+        logger.info(f"SMS send attempt to {country_code}{phone_number} with content length: {len(content)}")
+        
         if not phone_number or not content:
+            logger.warning("Missing phone number or content")
             flash('Please provide both phone number and message content', 'error')
             return redirect(url_for('send_sms_page'))
         
@@ -377,46 +436,68 @@ def send_sms_route():
             formatted_number = '52' + phone_number
         else:
             formatted_number = country_code.replace('+', '') + phone_number
+            
+        logger.info(f"Formatted number: {formatted_number}")
         
         # Calculate cost
         cost = current_user.sms_rate
+        logger.info(f"SMS cost: {cost}, user credits: {current_user.credits}")
         
         if current_user.credits < cost:
+            logger.warning(f"User {current_user.username} has insufficient credits: {current_user.credits} < {cost}")
             flash('Insufficient credits', 'error')
             return redirect(url_for('send_sms_page'))
         
         # Send SMS
-        success, result = send_sms(formatted_number, content)
+        logger.info(f"Attempting to send SMS via gateway")
+        try:
+            success, result = send_sms(formatted_number, content)
+            logger.info(f"SMS send result: success={success}, result={result}")
+        except Exception as e:
+            logger.error(f"Exception during SMS sending: {str(e)}")
+            flash(f'Error sending SMS: {str(e)}', 'error')
+            return redirect(url_for('send_sms_page'))
         
         # Create message record
-        Message.create(
-            user_id=current_user.id,
-            numbers=formatted_number,
-            content=content,
-            status='success' if success else 'failed',
-            message_id=result.get('message_id'),
-            cost=cost if success else 0
-        )
+        try:
+            message = Message.create(
+                user_id=current_user.id,
+                numbers=formatted_number,
+                content=content,
+                status='success' if success else 'failed',
+                message_id=result.get('message_id'),
+                cost=cost if success else 0
+            )
+            logger.info(f"Message record created: {message}")
+        except Exception as e:
+            logger.error(f"Error creating message record: {str(e)}")
+            flash('SMS was sent but there was an error recording it', 'warning')
+            return redirect(url_for('send_sms_page'))
         
         # Update user credits only if successful
         if success:
-            # Update user credits in Supabase
-            supabase.table('users').update({
-                'credits': current_user.credits - cost
-            }).eq('id', current_user.id).execute()
-            
-            # Update system balance
-            update_system_balance(cost)
-            
-            flash('SMS sent successfully', 'success')
+            try:
+                # Update user credits in Supabase
+                logger.info(f"Updating user credits: {current_user.credits} - {cost}")
+                supabase.table('users').update({
+                    'credits': current_user.credits - cost
+                }).eq('id', current_user.id).execute()
+                
+                # Update system balance
+                update_system_balance(cost)
+                
+                flash('SMS sent successfully', 'success')
+            except Exception as e:
+                logger.error(f"Error updating credits: {str(e)}")
+                flash('SMS sent, but there was an error updating your credits', 'warning')
         else:
             flash(f'Failed to send SMS: {result.get("error", "Unknown error")}', 'error')
             
         return redirect(url_for('send_sms_page'))
         
     except Exception as e:
-        logger.error(f"SMS sending error: {str(e)}")
-        flash(f'Error: {str(e)}', 'error')
+        logger.error(f"Unhandled exception in send_sms_route: {str(e)}")
+        flash(f'System error: {str(e)}', 'error')
         return redirect(url_for('send_sms_page'))
 
 @app.route('/send_sms_page')
@@ -432,10 +513,52 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# Serverless-friendly health check endpoint
+# Improved health check with diagnostics
 @app.route('/api/health')
 def health_check():
-    return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()})
+    try:
+        # Check if Supabase is working
+        supabase_ok = False
+        try:
+            # Try a simple query to verify Supabase connection
+            test_response = supabase.table('system_settings').select('*').limit(1).execute()
+            supabase_ok = True
+        except Exception as e:
+            logger.error(f"Supabase health check failed: {str(e)}")
+        
+        # Check SMPP connection
+        smpp_ok = False
+        try:
+            client = get_smpp_client()
+            if client:
+                client.unbind()
+                client.disconnect()
+                smpp_ok = True
+        except Exception as e:
+            logger.error(f"SMPP health check failed: {str(e)}")
+            
+        # Check environment
+        env_vars = {
+            "FLASK_APP": os.getenv("FLASK_APP", "not set"),
+            "SUPABASE_URL": "set" if os.getenv("SUPABASE_URL") else "not set",
+            "SMPP_HOST": os.getenv("SMPP_HOST", "not set"),
+            "SMS_GATEWAY_TYPE": os.getenv("SMS_GATEWAY_TYPE", "not set"),
+        }
+            
+        return jsonify({
+            'status': 'ok',
+            'timestamp': datetime.now().isoformat(),
+            'supabase_connection': 'ok' if supabase_ok else 'failed',
+            'smpp_connection': 'ok' if smpp_ok else 'failed',
+            'environment': env_vars
+        })
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 # For local development
 if __name__ == "__main__":
