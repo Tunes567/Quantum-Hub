@@ -2,25 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.9",
-        "buildCommand": "chmod +x build.sh && ./build.sh"
-      }
+      "src": "api/index.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/index.py"
+      "dest": "api/index.py"
     }
-  ],
-  "env": {
-    "PYTHONUNBUFFERED": "1",
-    "PYTHONPATH": ".",
-    "FLASK_APP": "vercel_app.py",
-    "FLASK_ENV": "production"
-  }
+  ]
 } 
