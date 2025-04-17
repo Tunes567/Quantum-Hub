@@ -1,19 +1,31 @@
 #!/bin/bash
 
+echo "Starting build process..."
+
 # Display Python version
-python --version
+echo "Python version: $(python --version)"
 
 # Display pip version
-pip --version
+echo "Pip version: $(pip --version)"
 
-# Install dependencies
-pip install -r vercel-requirements.txt
+# Create necessary directories
+echo "Creating directories..."
+mkdir -p api/static
+mkdir -p api/templates
 
-# Create any necessary directories
-mkdir -p .vercel_build_output
+# Install dependencies (only Flask)
+echo "Installing minimal dependencies..."
+pip install flask==2.2.3
 
-# Display installed packages for debugging
-pip list
+# Copy static file if it doesn't exist
+if [ ! -f "api/static/index.html" ]; then
+  echo "Creating static test file..."
+  echo '<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Static Test</h1></body></html>' > api/static/index.html
+fi
+
+# List files for verification
+echo "API directory contents:"
+ls -la api/
 
 # Success message
 echo "Build completed successfully!" 
