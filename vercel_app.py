@@ -39,9 +39,32 @@ DEFAULT_SMS_RATE = float(os.getenv('DEFAULT_SMS_RATE', 0.05))  # Default cost pe
 def get_smpp_client():
     """Get a configured SMPP client"""
     try:
-        client = smpplib.client.Client(os.getenv('SMPP_HOST'), int(os.getenv('SMPP_PORT')))
+        # Log the SMPP connection details
+        logger.info(f"Connecting to SMPP server: {os.getenv('SMPP_HOST')}:{os.getenv('SMPP_PORT')}")
+        
+        # Create client instance
+        client = smpplib.client.Client(
+            os.getenv('SMPP_HOST', '45.61.157.94'), 
+            int(os.getenv('SMPP_PORT', '20002'))
+        )
+        
+        # Set timeouts
+        client.set_message_sent_handler(
+            lambda pdu: logger.info(f"SMS message sent with PDU sequence {pdu.sequence}")
+        )
+        
+        # Connect to the server
+        logger.info("Attempting SMPP connection...")
         client.connect()
-        client.bind_transceiver(system_id=os.getenv('SMPP_USERNAME'), password=os.getenv('SMPP_PASSWORD'))
+        logger.info("SMPP connection successful, binding...")
+        
+        # Bind to the server
+        client.bind_transceiver(
+            system_id=os.getenv('SMPP_USERNAME', 'XQB250213A'), 
+            password=os.getenv('SMPP_PASSWORD', 'ABD55DBB')
+        )
+        logger.info("SMPP bind successful")
+        
         return client
     except Exception as e:
         logger.error(f"SMPP connection error: {str(e)}")
@@ -143,66 +166,128 @@ def send_sms(numbers, content):
     """Send SMS using SMPP"""
     try:
         gateway_type = os.getenv('SMS_GATEWAY_TYPE', 'smpp')
+        logger.info(f"Using SMS gateway type: {gateway_type}")
         
         if gateway_type.lower() == 'smpp':
+            # Log attempt to send SMS
+            logger.info(f"Attempting to send SMS to {numbers} via SMPP")
+            
+            # Get SMPP client
             client = get_smpp_client()
             if not client:
                 logger.error("Failed to connect to SMPP server")
-                return False, {'error': 'SMPP connection failed'}
+                # Try HTTP fallback
+                logger.info("Trying HTTP fallback for SMS delivery")
+                return send_sms_http(numbers, content)
             
             # Format the destination number
             if numbers.startswith('+'):
                 numbers = numbers[1:]  # Remove + if present
             
+            # Ensure number is in international format
+            if not numbers.startswith('52') and len(numbers) < 10:
+                numbers = '52' + numbers
+                
+            logger.info(f"Formatted destination number: {numbers}")
+            
             # Format the SMS content for GSM encoding
-            parts, encoding_flag, msg_type_flag = smpplib.gsm.make_parts(content)
+            try:
+                parts, encoding_flag, msg_type_flag = smpplib.gsm.make_parts(content)
+                logger.info(f"Message split into {len(parts)} parts")
+            except Exception as e:
+                logger.error(f"Error encoding message: {str(e)}")
+                # If encoding fails, send as unicode
+                parts = [content.encode('utf-16-be')]
+                encoding_flag = smpplib.consts.SMPP_ENCODING_ISO10646
+                msg_type_flag = 0
+                logger.info("Using unicode encoding for message")
             
             # Generate a unique message ID
             message_id = f'msg_{datetime.now().timestamp()}'
             
             # Send the message
+            success = True
             for part in parts:
-                pdu = client.send_message(
-                    source_addr_ton=smpplib.consts.SMPP_TON_ALNUM,
-                    source_addr=os.getenv('SMS_SENDER_ID', 'SMSHub'),
-                    dest_addr_ton=smpplib.consts.SMPP_TON_INTL,
-                    destination_addr=numbers,
-                    short_message=part,
-                    data_coding=encoding_flag,
-                    esm_class=msg_type_flag,
-                    registered_delivery=True,
-                )
-                logger.info(f"SMS sent with PDU ID: {pdu.sequence}")
+                try:
+                    pdu = client.send_message(
+                        source_addr_ton=smpplib.consts.SMPP_TON_ALNUM,
+                        source_addr=os.getenv('SMS_SENDER_ID', 'SMSHub'),
+                        dest_addr_ton=smpplib.consts.SMPP_TON_INTL,
+                        destination_addr=numbers,
+                        short_message=part,
+                        data_coding=encoding_flag,
+                        esm_class=msg_type_flag,
+                        registered_delivery=True,
+                    )
+                    logger.info(f"SMS part sent with PDU ID: {pdu.sequence}")
+                except Exception as e:
+                    logger.error(f"Error sending message part: {str(e)}")
+                    success = False
             
             # Unbind and disconnect
-            client.unbind()
-            client.disconnect()
-            
-            return True, {'message_id': message_id, 'status': 'sent'}
-        else:
-            # Use HTTP API as fallback
-            api_url = os.getenv('SMS_API_URL', 'http://45.61.157.94:20003/send')
-            
-            payload = {
-                'username': os.getenv('SMPP_USERNAME'),
-                'password': os.getenv('SMPP_PASSWORD'),
-                'to': numbers,
-                'text': content,
-                'from': os.getenv('SMS_SENDER_ID', 'SMSHub')
-            }
-            
-            response = requests.post(api_url, json=payload)
-            success = response.status_code == 200
-            
             try:
-                result = response.json()
-            except:
-                result = {'status': 'sent' if success else 'failed'}
-                
-            return success, result
+                client.unbind()
+                client.disconnect()
+                logger.info("SMPP connection closed")
+            except Exception as e:
+                logger.error(f"Error closing SMPP connection: {str(e)}")
+            
+            if success:
+                return True, {'message_id': message_id, 'status': 'sent'}
+            else:
+                # Try HTTP fallback
+                logger.info("SMPP delivery failed, trying HTTP fallback")
+                return send_sms_http(numbers, content)
+        else:
+            # Use HTTP API directly
+            return send_sms_http(numbers, content)
             
     except Exception as e:
         logger.error(f"SMS sending error: {str(e)}")
+        # Try HTTP fallback as last resort
+        try:
+            return send_sms_http(numbers, content)
+        except Exception as e2:
+            logger.error(f"HTTP fallback also failed: {str(e2)}")
+            return False, {'error': f"Both SMPP and HTTP delivery failed: {str(e2)}"}
+
+def send_sms_http(numbers, content):
+    """Send SMS using HTTP API as fallback"""
+    try:
+        logger.info(f"Sending SMS via HTTP API to {numbers}")
+        api_url = os.getenv('SMS_API_URL', 'http://45.61.157.94:20003/send')
+        
+        # Format the number if needed
+        if numbers.startswith('+'):
+            numbers = numbers[1:]
+            
+        payload = {
+            'username': os.getenv('SMPP_USERNAME', 'XQB250213A'),
+            'password': os.getenv('SMPP_PASSWORD', 'ABD55DBB'),
+            'to': numbers,
+            'text': content,
+            'from': os.getenv('SMS_SENDER_ID', 'SMSHub')
+        }
+        
+        logger.info(f"Sending HTTP request to {api_url}")
+        response = requests.post(api_url, json=payload)
+        success = response.status_code == 200
+        
+        if success:
+            logger.info(f"HTTP SMS delivery successful: {response.status_code}")
+        else:
+            logger.error(f"HTTP SMS delivery failed: {response.status_code} - {response.text}")
+        
+        try:
+            result = response.json()
+            logger.info(f"API response: {result}")
+        except:
+            result = {'status': 'sent' if success else 'failed'}
+            
+        return success, result
+        
+    except Exception as e:
+        logger.error(f"HTTP SMS sending error: {str(e)}")
         return False, {'error': str(e)}
 
 # Routes
