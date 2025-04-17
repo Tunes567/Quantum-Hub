@@ -560,6 +560,29 @@ def health_check():
             'timestamp': datetime.now().isoformat()
         }), 500
 
+# Add a simple debug route at the root
+@app.route('/debug')
+def debug_route():
+    """Simple route to check if server is running"""
+    try:
+        return jsonify({
+            'status': 'ok',
+            'message': 'Server is running',
+            'python_version': sys.version,
+            'env_vars': {
+                key: '[SET]' if key in os.environ else '[NOT SET]'
+                for key in [
+                    'FLASK_APP', 'SUPABASE_URL', 'SUPABASE_KEY', 
+                    'SMPP_HOST', 'SMPP_PORT', 'SMPP_USERNAME'
+                ]
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
 # For local development
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8000)), debug=os.getenv('FLASK_ENV') != 'production') 

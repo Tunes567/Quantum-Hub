@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # This file is a simple entry point for Vercel
+import os
 from vercel_app import app
 
 # This is used by Vercel
