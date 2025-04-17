@@ -1,7 +1,9 @@
 {
   "framework": "nextjs",
   "functions": {
-    "api/**/*.py": {}
+    "api/**/*.py": {
+      "runtime": "@vercel/python"
+    }
   },
   "builds": [
     { "src": "api/requirements.txt", "use": "@vercel/python" }
