@@ -18,7 +18,6 @@ export default function AdminDashboard() {
 
     const fetchDashboardData = async () => {
       try {
-        console.log('Fetching dashboard data...');
         const response = await fetch('/api/admin/dashboard', {
           method: 'GET',
           headers: {
@@ -27,18 +26,13 @@ export default function AdminDashboard() {
           },
           credentials: 'include'
         });
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
 
         if (!response.ok) {
           const errorData = await response.text();
-          console.error('API Error:', errorData);
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.status}, data: ${errorData}`);
         }
 
         const data = await response.json();
-        console.log('Dashboard data received:', data);
         setDashboardData(data);
         setError(null);
       } catch (error) {
@@ -50,7 +44,6 @@ export default function AdminDashboard() {
     };
 
     if (session) {
-      console.log('Session:', session);
       fetchDashboardData();
     }
   }, [session, status, router]);
@@ -84,25 +77,25 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Users"
-            value={dashboardData?.totalUsers || 0}
+            value={dashboardData?.stats?.totalUsers || 0}
             icon="👥"
             color="bg-blue-500"
           />
           <StatCard
             title="Messages Sent"
-            value={dashboardData?.messagesSent || 0}
+            value={dashboardData?.stats?.messagesSent || 0}
             icon="✉️"
             color="bg-green-500"
           />
           <StatCard
             title="Total Revenue"
-            value={`$${dashboardData?.totalRevenue || 0}`}
+            value={`$${dashboardData?.stats?.totalRevenue || 0}`}
             icon="💰"
             color="bg-yellow-500"
           />
           <StatCard
             title="System Balance"
-            value={`$${dashboardData?.systemBalance || 0}`}
+            value={`$${dashboardData?.stats?.systemBalance || 0}`}
             icon="💳"
             color="bg-purple-500"
           />
@@ -155,15 +148,13 @@ export default function AdminDashboard() {
 
 function StatCard({ title, value, icon, color }) {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center">
-        <div className={`${color} text-white p-3 rounded-full`}>
-          <span className="text-xl">{icon}</span>
+    <div className={`${color} rounded-lg shadow p-6 text-white`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
         </div>
-        <div className="ml-4">
-          <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        </div>
+        <span className="text-3xl">{icon}</span>
       </div>
     </div>
   );

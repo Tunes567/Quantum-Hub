@@ -2,10 +2,6 @@ import { getSession } from 'next-auth/react';
 import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
-  // Log the request method and headers for debugging
-  console.log('Request Method:', req.method);
-  console.log('Request Headers:', req.headers);
-
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,7 +19,6 @@ export default async function handler(req, res) {
 
   // Only allow GET requests
   if (req.method !== 'GET') {
-    console.log('Method not allowed:', req.method);
     return res.status(405).json({ 
       message: 'Method not allowed',
       allowedMethods: ['GET']
@@ -34,12 +29,10 @@ export default async function handler(req, res) {
     const session = await getSession({ req });
     
     if (!session) {
-      console.log('No session found');
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
     if (!session.user.isAdmin) {
-      console.log('User is not admin:', session.user);
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -78,15 +71,20 @@ export default async function handler(req, res) {
       })
     ]);
 
-    return res.status(200).json({
-      totalUsers,
-      messagesSent,
-      totalRevenue: totalRevenue._sum.amount || 0,
-      systemBalance: systemBalance?.balance || 0,
+    // Format the response
+    const response = {
+      stats: {
+        totalUsers,
+        messagesSent,
+        totalRevenue: totalRevenue._sum.amount || 0,
+        systemBalance: systemBalance?.balance || 0
+      },
       recentUsers
-    });
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
-    console.error('Dashboard API Error:', error);
+    console.error('Error in dashboard API:', error);
     return res.status(500).json({ 
       message: 'Internal server error',
       error: error.message 
