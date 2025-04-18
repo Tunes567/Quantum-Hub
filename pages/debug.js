@@ -17,23 +17,48 @@ export default function DebugPage() {
     setLoginResponse(null);
     
     try {
-      const response = await fetch('/api/login', {
+      console.log('Attempting login...');
+      const apiUrl = window.location.origin + '/api/login';
+      console.log('API URL:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'include'
       });
       
-      const data = await response.json();
-      setLoginResponse({
-        status: response.status,
-        ok: response.ok,
-        data
-      });
+      console.log('Response status:', response.status);
+      const contentType = response.headers.get('content-type');
+      console.log('Content-Type:', contentType);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.log('Error response text:', text);
+        try {
+          const data = JSON.parse(text);
+          setLoginResponse({
+            status: response.status,
+            ok: response.ok,
+            data
+          });
+        } catch (e) {
+          setError(`Server Error (${response.status}): ${text.substring(0, 200)}`);
+        }
+      } else {
+        const data = await response.json();
+        setLoginResponse({
+          status: response.status,
+          ok: response.ok,
+          data
+        });
+      }
     } catch (err) {
-      setError(`Error: ${err.message}`);
       console.error('Login test error:', err);
+      setError(`Network Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
