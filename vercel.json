@@ -2,6 +2,7 @@
   "framework": "nextjs",
   "routes": [
     { "src": "/api/health", "dest": "/api/health.py" },
+    { "src": "/api/login", "dest": "/api/login.js" },
     { "src": "/api/(.*)", "dest": "/api/app.py" }
   ]
 } 
