@@ -8,26 +8,49 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
+      return;
     }
 
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/admin/dashboard');
-        if (!response.ok) throw new Error('Failed to fetch dashboard data');
+        console.log('Fetching dashboard data...');
+        const response = await fetch('/api/admin/dashboard', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error('API Error:', errorData);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
+        console.log('Dashboard data received:', data);
         setDashboardData(data);
+        setError(null);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
     };
 
     if (session) {
+      console.log('Session:', session);
       fetchDashboardData();
     }
   }, [session, status, router]);
@@ -36,6 +59,17 @@ export default function AdminDashboard() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error!</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
       </div>
     );
   }
@@ -88,7 +122,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {dashboardData?.recentUsers.map((user) => (
+                {dashboardData?.recentUsers?.map((user) => (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{user.name}</div>
