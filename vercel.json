@@ -5,9 +5,6 @@
       "runtime": "@vercel/python"
     }
   },
-  "builds": [
-    { "src": "api/requirements.txt", "use": "@vercel/python" }
-  ],
   "routes": [
     { "src": "/api/health", "dest": "/api/health.py" },
     { "src": "/api/(.*)", "dest": "/api/app.py" }
