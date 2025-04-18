@@ -1,11 +1,5 @@
 {
   "framework": "nextjs",
-  "builds": [
-    {
-      "src": "api/**/*.py",
-      "use": "@vercel/python@3.1.0"
-    }
-  ],
   "routes": [
     { "src": "/api/health", "dest": "/api/health.py" },
     { "src": "/api/(.*)", "dest": "/api/app.py" }
