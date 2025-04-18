@@ -6,6 +6,7 @@ export default function DebugPage() {
   const [password, setPassword] = useState('admin123');
   const [loginResponse, setLoginResponse] = useState(null);
   const [error, setError] = useState('');
+  const [rawResponse, setRawResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [supabaseInfo, setSupabaseInfo] = useState(null);
   const [supabaseLoading, setSupabaseLoading] = useState(false);
@@ -15,10 +16,11 @@ export default function DebugPage() {
     setLoading(true);
     setError('');
     setLoginResponse(null);
+    setRawResponse('');
     
     try {
       console.log('Attempting login...');
-      const response = await fetch('/api/login', {
+      const response = await fetch('/api/debug-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -37,16 +39,22 @@ export default function DebugPage() {
       
       const text = await response.text();
       console.log('Response text:', text);
+      setRawResponse(text);
       
-      try {
-        const data = JSON.parse(text);
-        setLoginResponse({
-          status: response.status,
-          ok: response.ok,
-          data
-        });
-      } catch (e) {
-        setError(`Server Error (${response.status}): ${text.substring(0, 200)}`);
+      // Only try to parse as JSON if it looks like JSON
+      if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+        try {
+          const data = JSON.parse(text);
+          setLoginResponse({
+            status: response.status,
+            ok: response.ok,
+            data
+          });
+        } catch (e) {
+          setError(`JSON Parse Error: ${e.message}`);
+        }
+      } else {
+        setError(`Server Response Not JSON (${response.status}): ${text.substring(0, 200)}...`);
       }
     } catch (err) {
       console.error('Login test error:', err);
@@ -153,6 +161,15 @@ export default function DebugPage() {
                 <pre className="bg-light p-3 border rounded">
                   {JSON.stringify(loginResponse.data, null, 2)}
                 </pre>
+              </div>
+            )}
+
+            {rawResponse && !loginResponse && (
+              <div className="mt-3">
+                <h5>Raw Response:</h5>
+                <div className="bg-light p-3 border rounded" style={{ maxHeight: '200px', overflow: 'auto' }}>
+                  <code>{rawResponse}</code>
+                </div>
               </div>
             )}
           </div>

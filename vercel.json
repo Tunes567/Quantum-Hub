@@ -14,6 +14,11 @@
       "dest": "/api/login"
     },
     {
+      "src": "/api/debug-login",
+      "methods": ["POST", "OPTIONS"],
+      "dest": "/api/debug-login"
+    },
+    {
       "src": "/api/debug-supabase",
       "methods": ["GET"],
       "dest": "/api/debug-supabase"
