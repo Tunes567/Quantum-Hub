@@ -1,9 +1,25 @@
 {
   "framework": "nextjs",
   "routes": [
-    { "src": "/api/login", "dest": "/pages/api/login" },
-    { "src": "/api/debug-supabase", "dest": "/pages/api/debug-supabase" },
-    { "src": "/api/health", "dest": "/api/health.py" },
-    { "src": "/api/(.*)", "dest": "/api/app.py" }
+    { 
+      "src": "/api/login",
+      "methods": ["POST", "OPTIONS"],
+      "dest": "/pages/api/login.js"
+    },
+    { 
+      "src": "/api/debug-supabase",
+      "methods": ["GET"],
+      "dest": "/pages/api/debug-supabase.js"
+    },
+    { 
+      "src": "/api/health",
+      "methods": ["GET"],
+      "dest": "/api/health.py"
+    },
+    { 
+      "src": "/api/(.*)",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "dest": "/api/app.py"
+    }
   ]
 } 

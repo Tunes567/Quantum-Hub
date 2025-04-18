@@ -338,7 +338,7 @@ def index():
         logger.error(f"Error in index route: {str(e)}")
         return f"Application error: {str(e)}", 500
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/flask-login', methods=['GET', 'POST'])
 def login():
     try:
         if current_user.is_authenticated:
