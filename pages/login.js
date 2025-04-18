@@ -16,7 +16,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      console.log('Submitting login form...'); // Debug log
+      console.log('Attempting login with:', { username, password: '***' });
+      
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: {
@@ -25,18 +26,20 @@ export default function Login() {
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Login response:', data); // Debug log
+      console.log('Response data:', data);
 
-      if (res.ok) {
-        console.log('Login successful, redirecting...'); // Debug log
+      if (res.ok && data.success) {
+        console.log('Login successful, redirecting to dashboard...');
         router.push('/dashboard');
       } else {
-        setError(data.message || 'Login failed');
+        console.log('Login failed:', data.message);
+        setError(data.message || 'Login failed. Please try again.');
       }
     } catch (err) {
-      console.error('Login error:', err); // Debug log
-      setError('An error occurred. Please try again.');
+      console.error('Login error:', err);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
