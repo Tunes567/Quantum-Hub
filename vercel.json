@@ -1,8 +1,9 @@
 {
   "framework": "nextjs",
   "routes": [
+    { "src": "/api/login", "dest": "/pages/api/login" },
+    { "src": "/api/debug-supabase", "dest": "/pages/api/debug-supabase" },
     { "src": "/api/health", "dest": "/api/health.py" },
-    { "src": "/api/login", "dest": "/api/login.js" },
     { "src": "/api/(.*)", "dest": "/api/app.py" }
   ]
 } 
