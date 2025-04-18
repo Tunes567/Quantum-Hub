@@ -18,43 +18,35 @@ export default function DebugPage() {
     
     try {
       console.log('Attempting login...');
-      const apiUrl = window.location.origin + '/api/login';
-      console.log('API URL:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include'
+        body: JSON.stringify({ 
+          username: username.trim(), 
+          password: password.trim() 
+        }),
+        credentials: 'same-origin'
       });
       
       console.log('Response status:', response.status);
       const contentType = response.headers.get('content-type');
       console.log('Content-Type:', contentType);
       
-      if (!response.ok) {
-        const text = await response.text();
-        console.log('Error response text:', text);
-        try {
-          const data = JSON.parse(text);
-          setLoginResponse({
-            status: response.status,
-            ok: response.ok,
-            data
-          });
-        } catch (e) {
-          setError(`Server Error (${response.status}): ${text.substring(0, 200)}`);
-        }
-      } else {
-        const data = await response.json();
+      const text = await response.text();
+      console.log('Response text:', text);
+      
+      try {
+        const data = JSON.parse(text);
         setLoginResponse({
           status: response.status,
           ok: response.ok,
           data
         });
+      } catch (e) {
+        setError(`Server Error (${response.status}): ${text.substring(0, 200)}`);
       }
     } catch (err) {
       console.error('Login test error:', err);
