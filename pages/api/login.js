@@ -3,10 +3,16 @@ import { compare } from 'bcryptjs';
 
 export default async function handler(req, res) {
   console.log('API Route Hit:', req.method);
+  
+  // Log all relevant environment variables
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+  
   console.log('Environment check:', {
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not Set',
-    supabaseKey: process.env.SUPABASE_KEY ? 'Set' : 'Not Set',
-    nodeEnv: process.env.NODE_ENV
+    supabaseUrl: supabaseUrl ? 'Set' : 'Not Set',
+    supabaseKey: supabaseKey ? 'Set' : 'Not Set',
+    nodeEnv: process.env.NODE_ENV,
+    allEnvKeys: Object.keys(process.env).filter(key => key.includes('SUPABASE'))
   });
   
   // Enable CORS
@@ -29,14 +35,14 @@ export default async function handler(req, res) {
 
   try {
     // Check if Supabase credentials are available
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_KEY) {
+    if (!supabaseUrl || !supabaseKey) {
       console.error('Supabase credentials missing');
       return res.status(500).json({
         success: false,
         message: 'Server configuration error: Missing Supabase credentials',
         debug: {
-          supabaseUrlSet: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-          supabaseKeySet: !!process.env.SUPABASE_KEY,
+          supabaseUrlSet: !!supabaseUrl,
+          supabaseKeySet: !!supabaseKey,
           env: process.env.NODE_ENV
         }
       });
@@ -45,10 +51,7 @@ export default async function handler(req, res) {
     // Initialize Supabase client
     let supabase;
     try {
-      supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_KEY
-      );
+      supabase = createClient(supabaseUrl, supabaseKey);
       console.log('Supabase client initialized');
     } catch (initError) {
       console.error('Supabase client initialization error:', initError);
